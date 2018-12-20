@@ -11,15 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.0.0)
+
+include(cmake/HunterGate.cmake)
+HunterGate(
+  URL "https://github.com/ruslo/hunter/archive/v0.23.80.tar.gz"
+  SHA1 "3bfa8be33ac3bdac570312ca1ece33059cc71c20"
+)
 
 set(PROJECT_NAME MathFu)
-project(MathFu)
+project(MathFu
+  LANGUAGES CXX
+  VERSION "1.1.0")
 
 # Call fplutil to get locations of dependencies and set common build settings.
-include("cmake/find_fplutil.cmake")
-include("${fplutil_dir}/buildutil/cmake_common.txt")
-set_common_build_variables()
+#include("cmake/find_fplutil.cmake")
+#include("${fplutil_dir}/buildutil/cmake_common.txt")
+#set_common_build_variables()
 
 # Options that control the build configuration.
 # To configure MathFu flags per build target, see the
@@ -128,6 +136,61 @@ macro(mathfu_set_ios_attributes project)
 endmacro(mathfu_set_ios_attributes)
 
 file(GLOB_RECURSE MATHFU_HEADERS ${CMAKE_CURRENT_LIST_DIR}/include/mathfu *.h)
+
+hunter_add_package(vectorial)
+find_package(vectorial CONFIG REQUIRED)
+
+add_library(mathfu INTERFACE)
+target_link_libraries(mathfu INTERFACE vectorial::vectorial)
+set_property(TARGET mathfu APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+          $<INSTALL_INTERFACE:include>)
+
+### Install (https://github.com/forexample/package-example) ###
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+set(config_install_dir "lib/cmake/${PROJECT_NAME}")
+set(include_install_dir "include")
+
+set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(targets_export_name "${PROJECT_NAME}Targets")
+set(namespace "${PROJECT_NAME}::")
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${version_config}" COMPATIBILITY AnyNewerVersion
+)
+
+# Note: use 'targets_export_name'
+configure_package_config_file(
+    "cmake/Config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
+
+install(
+    TARGETS mathfu
+    EXPORT "${targets_export_name}"
+    INCLUDES DESTINATION "${include_install_dir}"
+)
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/mathfu/
+    DESTINATION ${include_install_dir}/mathfu
+    FILES_MATCHING PATTERN "*.h"
+)
+
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    EXPORT "${targets_export_name}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)
 
 if(mathfu_build_benchmarks)
   add_subdirectory(benchmarks)
